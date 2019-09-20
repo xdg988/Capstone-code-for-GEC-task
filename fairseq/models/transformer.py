@@ -161,7 +161,7 @@ class TransformerModel(FairseqModel):
         if len(args.pretrained_model) > 0:
             assert os.path.exists(args.pretrained_model), '%s does not exist' % args.pretrained_model
             print('Load params from %s...' % args.pretrained_model)
-            states = torch.load(args.pretrained_model)['model']
+            states = torch.load(args.pretrained_model, map_location='cpu')['model']
             for name, p in self.named_parameters():
                 if name in states and p.size() == states[name].size():
                     print('Load %s...' % name)

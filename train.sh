@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source ./config.sh
+. ./config.sh
 
 pretrained_model=./out/models_pretrain/checkpoint9.pt
 
