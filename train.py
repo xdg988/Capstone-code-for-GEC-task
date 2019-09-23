@@ -29,6 +29,7 @@ from fairseq.models import ema_reverse, ema_restore
 import warnings
 warnings.filterwarnings("ignore")
 
+
 def main(args, init_distributed=False):
     import_user_module(args)
 
