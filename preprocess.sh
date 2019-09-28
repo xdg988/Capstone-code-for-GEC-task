@@ -17,25 +17,24 @@ common_params='--source-lang src --target-lang tgt
 --joined-dictionary 
 '
 
-trainpref='data/train_merge'
-validpref='data/valid'
+trainpref='data/train_bea'
+validpref='data/valid_bea'
 
 # preprocess train/valid
-python preprocess.py \
-$common_params \
-$copy_params \
---trainpref $trainpref \
---validpref $validpref \
---destdir $DATA_BIN \
---output-format binary \
---alignfile $trainpref.forward \
-| tee $OUT/data_bin.log
+#python preprocess.py \
+#$common_params \
+#$copy_params \
+#--trainpref $trainpref \
+#--validpref $validpref \
+#--destdir $DATA_BIN \
+#--output-format binary \
+#| tee $OUT/data_bin.log
 
 # preprocess test
 python preprocess.py \
 $common_params \
 $copy_params \
---testpref data/test \
+--testpref data/test1 \
 --destdir $DATA_RAW \
 --output-format raw \
 | tee $OUT/data_raw.log

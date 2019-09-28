@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-. ./config.sh
+source ./config.sh
 
 pretrained_model=./out/models_pretrain/checkpoint9.pt
 
@@ -10,7 +10,7 @@ CUDA_VISIBLE_DEVICES=$device nohup python train.py $DATA_BIN \
 --batch-size 64 \
 --max-tokens 3000 \
 --train-subset train \
---valid-subset valid \
+--valid-subset valid,valid1 \
 --arch transformer \
 --lr-scheduler triangular --max-lr 0.004 --lr-period-updates 73328 \
 --clip-norm 2 --lr 0.001 --lr-shrink 0.95 --shrink-min \
