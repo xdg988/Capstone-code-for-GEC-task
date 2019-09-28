@@ -1,0 +1,6 @@
+Namespace(alignfile=None, copy_ext_dict=True, cpu=False, destdir='out/data_bin', fp16=False, fp16_init_scale=128, fp16_scale_tolerance=0.0, fp16_scale_window=None, joined_dictionary=True, log_format=None, log_interval=1000, memory_efficient_fp16=False, min_loss_scale=0.0001, no_progress_bar=False, nwordssrc=-1, nwordstgt=-1, only_source=False, output_format='binary', padding_factor=1, seed=1, source_lang='src', srcdict='./dicts/dict.src.txt', target_lang='tgt', task='translation', tensorboard_logdir='', testpref=None, tgtdict=None, threshold_loss_scale=None, thresholdsrc=0, thresholdtgt=0, trainpref='data/train_merge', user_dir=None, validpref=None, workers=1)
+| [src] Dictionary: 49998 types
+| [src] data/train_merge.src: 618169 sents, 9604660 tokens, 2.25% replaced by <unk>, 0.0% <unk> copied from src
+| [tgt] Dictionary: 49998 types
+| [tgt] data/train_merge.tgt: 618169 sents, 9859486 tokens, 1.72% replaced by <unk>, 1.4% <unk> copied from src
+| Wrote preprocessed data to out/data_bin
