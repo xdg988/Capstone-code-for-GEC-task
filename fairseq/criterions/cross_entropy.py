@@ -30,7 +30,10 @@ class CrossEntropyCriterion(FairseqCriterion):
         net_output = model(**sample['net_input'])
         loss, _ = self.compute_loss(model, net_output, sample, reduce=reduce)
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
-        copy_alpha = net_output[1]['copy_alpha'].mean().item() if net_output[1]['copy_alpha'] is not None else -1
+        try:
+            copy_alpha = net_output[1]['copy_alpha'].mean().item() if net_output[1]['copy_alpha'] is not None else -1
+        except:
+            copy_alpha = -1
         logging_output = {
             'loss': utils.item(loss.data) if reduce else loss.data,
             'ntokens': sample['ntokens'],
