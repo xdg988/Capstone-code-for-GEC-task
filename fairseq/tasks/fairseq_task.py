@@ -90,7 +90,7 @@ class FairseqTask(object):
         return self.datasets[split]
 
     def get_batch_iterator(
-        self, dataset, max_tokens=None, max_sentences=None, max_positions=None,
+        self, dataset, max_tokens=None, max_sentences=None, max_positions=None, ind_sort=False,
         ignore_invalid_inputs=False, required_batch_size_multiple=1,
         seed=1, num_shards=1, shard_id=0, num_workers=0,
     ):
@@ -128,6 +128,8 @@ class FairseqTask(object):
         # get indices ordered by example size
         with data_utils.numpy_seed(seed):
             indices = dataset.ordered_indices()
+        if ind_sort:
+            indices.sort()
 
         # filter examples that are too large
         indices = data_utils.filter_by_size(

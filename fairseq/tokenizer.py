@@ -17,6 +17,11 @@ SPACE_NORMALIZER = re.compile(r"\s+")
 
 
 def tokenize_line(line):
+    punc = ['.', '?', '!', '(', ')', '"', ':', ',']
+    for s in punc:
+        rep = ' ' + s + ' '
+        line = line.replace(s, rep)
+    line = line.replace("'", " '")
     line = SPACE_NORMALIZER.sub(" ", line)
     line = line.strip()
     return line.split()

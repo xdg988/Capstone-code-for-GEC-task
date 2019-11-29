@@ -12,16 +12,37 @@ Translate raw text with a trained model. Batches data on-the-fly.
 from collections import namedtuple
 import fileinput
 import sys
-from nltk import tokenize
+import argparse
+
 import torch
 
 from fairseq import data, options, tasks, tokenizer, utils
 from fairseq.sequence_generator import SequenceGenerator
 from fairseq.utils import import_user_module
+from fairseq.lm_scorer import LMScorer
+from gec_scripts.fluency_scorer import FluencyScorer
 
 Batch = namedtuple('Batch', 'ids src_tokens src_lengths, src_strs')
 Translation = namedtuple('Translation', 'src_str hypos pos_scores alignments')
 
+lm_path = r'./language_model/adaptive_lm_gbw_huge/model.pt'
+lm_databin = r'./language_model/adaptive_lm_gbw_huge/data-bin'
+
+def load_lm(lm_path=lm_path, lm_databin=lm_databin):
+    args = argparse.Namespace(
+        path=lm_path, data=lm_databin,
+        fp16=False, fp16_init_scale=128, fp16_scale_tolerance=0.0,
+        fp16_scale_window=None, fpath=None, future_target=False,
+        gen_subset='test', lazy_load=False, log_format=None, log_interval=1000,
+        max_sentences=None, max_tokens=None, memory_efficient_fp16=False,
+        min_loss_scale=0.0001, model_overrides='{}', no_progress_bar=True,
+        num_shards=1, num_workers=0, output_dictionary_size=-1,
+        output_sent=False, past_target=False,
+        quiet=True, raw_text=False, remove_bpe=None, sample_break_mode=None,
+        seed=1, self_target=False, shard_id=0, skip_invalid_size_inputs_valid_test=False,
+        task='language_modeling', tensorboard_logdir='', threshold_loss_scale=None,
+        tokens_per_sample=1024, user_dir=None, cpu=False)
+    return LMScorer(args)
 
 def buffered_read(input, buffer_size):
     buffer = []
@@ -47,7 +68,6 @@ def make_batches(lines, args, task, max_positions):
         max_tokens=args.max_tokens,
         max_sentences=args.max_sentences,
         max_positions=max_positions,
-        ind_sort=True,
     ).next_epoch_itr(shuffle=False)
     for batch in itr:
         yield Batch(
@@ -55,6 +75,7 @@ def make_batches(lines, args, task, max_positions):
             src_tokens=batch['net_input']['src_tokens'], src_lengths=batch['net_input']['src_lengths'],
             src_strs=[lines[i] for i in batch['id']],
         )
+
 
 
 def main(args):
@@ -76,6 +97,18 @@ def main(args):
 
     # Setup task, e.g., translation
     task = tasks.setup_task(args)
+
+    lm_scorer = load_lm()
+
+    def sort_list(line_list):
+        tmp = [l[0] for l in line_list]
+        score_dict = lm_scorer.score(tmp)
+        for i in range(len(tmp)):
+            line_list[i][1] = float(line_list[i][1]) + float(score_dict[i])/10
+#            line_list[i][1] = float(score_dict[i])
+        line_list.sort(key=lambda k: k[1], reverse=True)
+        #    tmp1 = [l[0] for l in line_list]
+        return line_list
 
     # Load ensemble
     print('| loading model(s) from {}'.format(args.path))
@@ -116,11 +149,13 @@ def main(args):
     if args.buffer_size > 1:
         print('| Sentence buffer size:', args.buffer_size)
     print('| Type the input sentence and press return:')
+
     start_id = 0
     src_strs = []
-    for parag in buffered_read(args.input, args.buffer_size):
+    for inputs in buffered_read(args.input, args.buffer_size):
+
         results = []
-        inputs = tokenize.sent_tokenize(parag[0])
+
         for batch in make_batches(inputs, args, task, max_positions):
             src_tokens = batch.src_tokens
             src_lengths = batch.src_lengths
@@ -144,28 +179,26 @@ def main(args):
         for id, src_tokens, hypos in sorted(results, key=lambda x: x[0]):
             if src_dict is not None:
                 src_str = src_dict.string(src_tokens, args.remove_bpe)
-                print('S-{}\t{}'.format(id, src_str))
+                source = 'S-{}\t{}'.format(id, src_str)
 
+            res = []
             # Process top predictions
+            count = 0
             for hypo in hypos[:min(len(hypos), args.nbest)]:
                 hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
                     hypo_tokens=hypo['tokens'].int().cpu(),
-                    src_str=src_strs[id],
+                    src_str=inputs[0],
                     alignment=hypo['alignment'].int().cpu() if hypo['alignment'] is not None else None,
                     align_dict=align_dict,
                     tgt_dict=tgt_dict,
                     remove_bpe=args.remove_bpe,
                 )
-                print('H-{}\t{}\t{}'.format(id, hypo['score'], hypo_str))
-                print('P-{}\t{}'.format(
-                    id,
-                    ' '.join(map(lambda x: '{:.4f}'.format(x), hypo['positional_scores'].tolist()))
-                ))
-                if args.print_alignment:
-                    print('A-{}\t{}'.format(
-                        id,
-                        ' '.join(map(lambda x: str(utils.item(x)), alignment))
-                    ))
+
+                res.append([hypo_str, hypo['score']])
+
+        res = sort_list(res)
+        print ('Best result : ', res[0][0])
+
 
         # update running id counter
         start_id += len(results)

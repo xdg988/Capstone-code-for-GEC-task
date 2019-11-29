@@ -12,15 +12,139 @@ Translate raw text with a trained model. Batches data on-the-fly.
 from collections import namedtuple
 import fileinput
 import sys
-from nltk import tokenize
 import torch
+
 
 from fairseq import data, options, tasks, tokenizer, utils
 from fairseq.sequence_generator import SequenceGenerator
 from fairseq.utils import import_user_module
+import os
+import numpy as np
+from collections import defaultdict
+from fairseq.lm_scorer import LMScorer
+import argparse
+from spellchecker import SpellChecker
+import string
+
+from pylanguagetool import api
+
 
 Batch = namedtuple('Batch', 'ids src_tokens src_lengths, src_strs')
 Translation = namedtuple('Translation', 'src_str hypos pos_scores alignments')
+
+lm_path = r'./language_model/wiki103_fconv/wiki103.pt'
+lm_databin = r'./language_model/data-bin'
+
+def load_lm(lm_path=lm_path, lm_databin=lm_databin):
+    args = argparse.Namespace(
+        path=lm_path, data=lm_databin,
+        fp16=False, fp16_init_scale=128, fp16_scale_tolerance=0.0,
+        fp16_scale_window=None, fpath=None, future_target=False,
+        gen_subset='test', lazy_load=False, log_format=None, log_interval=1000,
+        max_sentences=None, max_tokens=None, memory_efficient_fp16=False,
+        min_loss_scale=0.0001, model_overrides='{}', no_progress_bar=True,
+        num_shards=1, num_workers=0, output_dictionary_size=-1,
+        output_sent=False, past_target=False,
+        quiet=True, raw_text=False, remove_bpe=None, sample_break_mode=None,
+        seed=1, self_target=False, shard_id=0, skip_invalid_size_inputs_valid_test=False,
+        task='language_modeling', tensorboard_logdir='', threshold_loss_scale=None,
+        tokens_per_sample=1024, user_dir=None, cpu=False)
+    return LMScorer(args)
+
+class SpellChecking():
+    def __init__(self, stc, lm_scorer):#st means sentence which need be checked by spellcheker
+        self.stc = stc
+        self.lm_scorer = lm_scorer
+        self.checker = SpellChecker()
+    def puncRemove(self, sentence):
+        tranTemp = str.maketrans({key: None for key in string.punctuation})
+        tgtSentence = sentence.translate(tranTemp)
+        return tgtSentence
+    def errorFind(self, sentence):
+        #tgtSentence = self.puncRemove(sentence)
+        tokenList = sentence.split(' ')
+        posList = [] #Store the position of wrong words' positions
+        numList = [] #Store the number of wrong words' candidates
+        for tokenIndex in range(len(tokenList)):
+            if self.checker.correction(tokenList[tokenIndex]) != tokenList[tokenIndex]: #Checking if this word is right
+                posList.append(tokenIndex) #will be replaced by method searching for all candidates by language model 
+                numList.append(len(self.checker.candidates(tokenList[tokenIndex])))
+        return (posList, numList)
+    def suggest(self, sentence):
+        (posList, numList) = self.errorFind(sentence)
+        lenInt = len(sentence.split(' '))
+        for index in range(len(numList)):
+            candiList = []
+            lenNewInt = len(sentence.split(' '))
+            lenGapInt = lenNewInt - lenInt
+            #print(posList, numList)
+            if lenGapInt != 0:
+                lenInt = lenNewInt
+                for pos in range(len(posList)):
+                    posList[pos] += lenGapInt
+            for num in range(numList[index]):
+                tokenList = sentence.split(' ')
+                tokenList[posList[index]]=list(self.checker.candidates(tokenList[posList[index]]))[num]
+                newSentence = ' '.join(tokenList)
+                candiList.append(newSentence) # Store candidates
+            scoreDict = self.lm_scorer.score(candiList) # Score sentences
+            maxInt = max(scoreDict, key=scoreDict.get) #find the max
+            sentence = candiList[maxInt]
+        return sentence
+
+
+def sentence_check(src):
+    # input a source sentence and correct the first error
+
+    enable_rule_list1 = ['COMMA_COMPOUND_SENTENCE', 'EN_QUOTES', 'SENT_START_CONJUNCTIVE_LINKING_ADVERB_COMMA', 
+                         'DOUBLE_PUNCTUATION', 'COMMA_PARENTHESIS_WHITESPACE', 
+                         'DELETE_SPACE', 'SENTENCE_WHITESPACE', 'DASH_RULE']
+    enable_rule_list2 = ['PLURAL_VERB_AFTER_THIS', 'DOES_YOU', 'FEWER_LESS', 'UPPERCASE_SENTENCE_START',
+                        'EN_A_VS_AN', 'EVERYDAY_EVERY_DAY', 'CONFUSION_OF_THESES_THESE', 'DO_ARTS',
+                        'WHO_WHOM', 'THIS_NNS', 'THE_SUPERLATIVE', 'MENTION_ABOUT',
+                        'USE_TO_VERB', 'LOT_OF', 'MANY_NN', 'A_UNCOUNTABLE',
+                        'DOWN_SIDE', 'HAVE_PART_AGREEMENT', 'NODT_DOZEN',
+                        'PHRASE_REPETITION', 'ADVISE_VBG', 'COMPARISONS_AS_ADJECTIVE_AS'
+                        ]
+    
+    #res_dict = api.check(src, api_url='https://languagetool.org/api/v2/', lang='en-US')
+    res_dict = api.check(src, api_url='http://localhost:8081/v2/', lang='en-US')
+    res_matches = res_dict['matches']
+    res_matches = [m for m in res_matches if len(m['replacements'])>0]
+    res_matches = [m for m in res_matches if (m['rule']['id'] in enable_rule_list1) or (m['rule']['id'] in enable_rule_list2)]
+    #res_matches = [m for m in res_matches if m['rule']['id'] in enable_rule_list2] # only use list 2 for generate
+    if len(res_matches)==0:
+        return None # no mistake detected
+    match = res_matches[0]
+    tmp_from = match['offset']; tmp_to = tmp_from + match['length']
+    tgt = src[:tmp_from] + match['replacements'][0]['value'] + src[tmp_to:]
+    return tgt, match['message'], match['rule']['id']
+
+
+def capitalize_proper_non(src, nameList):
+    srcList = src.split(' ')
+    for i in range(len(srcList)):
+        wordStr = srcList[i]
+        if wordStr.capitalize() in nameList:
+            srcList[i] = wordStr.capitalize()
+    return ' '.join(srcList)  
+
+    
+def iter_check(src):
+    # input a source sentence and return the correct one.
+    tgt = src    
+    msgList = []; ruleList = []
+    tmp_res = sentence_check(src)
+    count = 0 # max number of modificaition by rule
+    while tmp_res and count <= 20:
+        count += 1
+        next_tgt, msg, rule = tmp_res
+        tgt = next_tgt
+        msgList.append(msg); ruleList.append(rule)
+        tmp_res = sentence_check(tgt)
+    # self-defined nameList    
+    tgt = capitalize_proper_non(tgt, nameList = ['Facebook', 'I'])
+    return tgt
 
 
 def buffered_read(input, buffer_size):
@@ -47,7 +171,6 @@ def make_batches(lines, args, task, max_positions):
         max_tokens=args.max_tokens,
         max_sentences=args.max_sentences,
         max_positions=max_positions,
-        ind_sort=True,
     ).next_epoch_itr(shuffle=False)
     for batch in itr:
         yield Batch(
@@ -59,7 +182,8 @@ def make_batches(lines, args, task, max_positions):
 
 def main(args):
     import_user_module(args)
-
+    lm_scorer = load_lm()
+    check = SpellChecking('----Let us transform----',lm_scorer)
     if args.buffer_size < 1:
         args.buffer_size = 1
     if args.max_tokens is None and args.max_sentences is None:
@@ -118,9 +242,10 @@ def main(args):
     print('| Type the input sentence and press return:')
     start_id = 0
     src_strs = []
-    for parag in buffered_read(args.input, args.buffer_size):
+    for inputs in buffered_read(args.input, args.buffer_size):
         results = []
-        inputs = tokenize.sent_tokenize(parag[0])
+        lineStrSrc = inputs[0][:-1]
+        inputs  = [check.suggest(lineStrSrc)]
         for batch in make_batches(inputs, args, task, max_positions):
             src_tokens = batch.src_tokens
             src_lengths = batch.src_lengths
@@ -156,7 +281,8 @@ def main(args):
                     tgt_dict=tgt_dict,
                     remove_bpe=args.remove_bpe,
                 )
-                print('H-{}\t{}\t{}'.format(id, hypo['score'], hypo_str))
+                hypo_str_rule = iter_check(hypo_str)
+                print('H-{}\t{}\t{}\t{}'.format(id, hypo['score'], hypo_str, hypo_str_rule))
                 print('P-{}\t{}'.format(
                     id,
                     ' '.join(map(lambda x: '{:.4f}'.format(x), hypo['positional_scores'].tolist()))
