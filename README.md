@@ -86,7 +86,7 @@ This Capstone was completed as the final project for DASC 7600: Data Science Pro
 * Haohan Huang: error generation model construction and training, GLEU scoring function, research and build rule-based system.
 * Peixin Gao: boost inference(iterative decoding), fluency scoring, re-ranking.
 
-Some of the work described above is completed by more than one person. Therefore, the list is only a basic summary. Besides, a report is included in this repository and our Web UI is also available in another repository.
+Some of the work described above is completed by more than one person. Therefore, the list is only a basic summary. Besides, a report is included in this repository(**report** folder) and our Web UI is also available in another [repository](https://github.com/xdg988/Capstone-Web-UI).
 
 ## Acknowledgments
 Our code was modified from [fairseq](https://github.com/pytorch/fairseq) codebase. We use the same license as fairseq(-py).
