@@ -3,7 +3,6 @@
 """
 Created on Sun Nov  4 17:49:04 2019
 
-@author: ailab
 """
 
 
