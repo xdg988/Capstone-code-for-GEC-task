@@ -1,19 +1,32 @@
 # Introduction
 
-This is the source code for HKU Capstone. The goal of this project is to implement a grammatical error correction model using [PyTorch](https://github.com/pytorch/pytorch) and [fairseq](https://github.com/pytorch/fairseq).
-
-The initial version of our code is based on source code of [Copy-Augmented Architecture](https://github.com/zhawe01/fairseq-gec). Then we add more data and try some tricks for the baseline model. Some of them work and we make some progress in F0.5 and GLEU. Our code is more about an empirical study on applying NLP techniques to a university team capstone.
+Source code for the paper: 
+**Improving Grammatical Error Correction via Pre-Training a Copy-Augmented Architecture with Unlabeled Data**
+Authors: Wei Zhao, Liang Wang, Kewei Shen, Ruoyu Jia, Jingming Liu
+Arxiv url: https://arxiv.org/abs/1903.00138
+Comments: Accepted by NAACL 2019 (oral)
+![](arch.jpg)
 
 ## Dependecies
 - PyTorch version >= 1.0.0
 - Python version >= 3.6
 
 ## Downloads
-- Download necessary pre-processed data and pre-trained models
+- Download CoNLL-2014 evaluation scripts
 
-  Downloads files, just like original code's [introduction](https://github.com/zhawe01/fairseq-gec)
+```
+cd gec_scripts/
+sh download.sh
+```
 
-- Download BEA train\valid\test [dataset](https://www.cl.cam.ac.uk/research/nl/bea2019st/data/wi+locness_v2.1.bea19.tar.gz)
+- Download **pre-processed data** & **pre-trained models**
+  
+  pre-trained model: (Google Drive/Baidu Pan) 
+    - url1: https://drive.google.com/file/d/1zewifHUUwvqc2F-MfDRsZFio6PlSzx2c/view?usp=sharing
+    - url2: https://pan.baidu.com/s/1hCwQeNFjng_0_NiViJq6fg (code: mxrf)
+    
+  pre-processed data: (Google Drive)(train/valid/test)
+    - url: https://drive.google.com/open?id=17s-TZiM6ilQ-SHklxTUun2Jdgg8B9zS3  
 
 ## Train with the pre-trained model
 ```
