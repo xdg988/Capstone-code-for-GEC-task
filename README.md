@@ -33,7 +33,7 @@ sh interactive.sh \${device_id} \${experiment_name}  #change interactive.py into
   F0.5 score slightly drops and GLEU rises to 60.18. The main reason is that JFLEG test set has lots of spell mistakes and spellchecker can help a lot.
 
 - Add rule-based [system](https://github.com/Findus23/pyLanguagetool)
-  We pick up some basic rules in LanguageTool and add them into our grammar checker pipeline. F0.5 score rises to 61.13 and GLEU reaches 61.13.
+  We pick up some basic rules in LanguageTool and add them into our grammar checker pipeline. F0.5 score rises to 61.13 and GLEU reaches 60.47.
 ```
 sh interactive_spellchecked_rule.sh \${device_id} \${experiment_name}
 ```
